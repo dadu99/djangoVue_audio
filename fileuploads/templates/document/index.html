@@ -1,0 +1,308 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        {% load static %}
+        <link rel="shortcut icon" type="image/png" href="../../../static/icons8-music-ios-16-16.png"/>
+        <link rel="shortcut icon" type="image/png" href="../../../static/icons8-music-ios-16-32.png"/>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+        <link rel="stylesheet" href="{% static 'styles.css' %}">
+        <title>Audio Classification</title>
+    </head>
+</head>
+<body>
+    <section class="section" id="app">
+
+        
+        <div class="area" >
+            <ul class="circles">
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+                    <li></li>
+            </ul>
+    </div>
+        <div class="page-audio fade-in">
+            <h1 class="title mb-6">System Sound Classification</h1>
+         
+        <div class="upload-file d-flex align-content-center gap-3 justify-content-center">
+              <div class="field pt-2 text-light">
+                     <label class="label text-light">Upload a .waw OR mp3 file</label>
+              </div>
+               
+            <div class="file">
+                <div class="control">
+                    <label class="file-label" name="Upload">
+                    <input type="file" ref="file" class="file-input" name="audioFile" accept="audio/mp3, audio/wav" @change="selectFile">
+                    <span class="file-cta">
+                        <span class="file-label">Choose a file...</span>
+                    </span>
+                </label> 
+                </div>
+            </div>
+            <button class="button btn btn-secondary btn-sm" type="reset" @click="reset">Reset Settings</button>
+        </div>
+          
+            <div class="container" v-if="displayPicked">
+                <div class="field pt-2">
+                    <label class="label">Select sound type:</label>
+                </div>
+                        <label for="environmental">
+                           <input type="radio" id="environmental" value="environmental" v-model="picked" @change="chooseType_Step1"/>
+                           <span>Environmental</span>
+                         </label> 
+
+                         <label for="music">
+                            <input type="radio" id="music" value="music" v-model="picked" @change="chooseType_Step1"/>
+                            <span>Music</span>
+                        </label> 
+            </div>
+
+            <div class="container-environmental" v-if="displayEnvironmental">
+                <div class="field pt-2">
+                    <label class="label">Select sound representation:</label>
+                </div>
+                <label for="raw"  v-if= "picked !== 'music'">
+                    <input type="radio" id="raw" value="raw"  v-model="pickedEnvironmental" @change="chooseType_Step2"/>
+                    <span>Raw</span>
+                  </label> 
+
+                  <label for="mfcc">
+                    <input type="radio" id="mfcc" value="mfcc" v-model="pickedEnvironmental" @change="chooseType_Step2"/>
+                    <span>MFCC</span>
+                </label> 
+
+                  <label for="imageProcesing">
+                     <input type="radio" id="imageProcesing" value="imageProcesing" v-model="pickedEnvironmental" @change="chooseType_Step2"/>
+                     <span>Image</span>
+                 </label> 
+                 <label for="vgg"  v-if= "picked !== 'music'">
+                    <input type="radio" id="vgg" value="vgg"  v-model="pickedEnvironmental" @change="chooseType_Step2"/>
+                    <span>VGG16</span>
+                  </label> 
+            </div>
+        
+            <div class="step3">
+                 <div></div>
+                <div class="container-image-processing" v-if="displayImage_Processing">
+                    <label for="mel">
+                        <input type="radio" id="mel" value="mel" v-model="pickedImage_Processing" @change="chooseType_Step3"/>
+                        <span>Mel Spectogram</span>
+                    </label> 
+
+                    <label for="chroma">
+                        <input type="radio" id="chroma" value="chroma" v-model="pickedImage_Processing" @change="chooseType_Step3"/>
+                        <span>Chroma CQT</span>
+                    </label> 
+
+                    <label for="chromaCens">
+                        <input type="radio" id="chromaCens" value="chromaCens" v-model="pickedImage_Processing" @change="chooseType_Step3"/>
+                        <span>Chroma CENS</span>
+                    </label> 
+                </div>     
+            </div>
+        
+   
+           <div class="proceed">
+                <div class="notification mt-6" v-if="documents.length">
+                    <p v-for="document in documents">
+                        [[ document.name ]] [[ document.status ]]
+                    </p>
+                </div>
+                <button class="button is-primary mt-2" v-if="documents.length" @click="getTypeProceed">Proceed</button>
+           </div>
+          
+            
+            <div class="notification mt-6" v-if="showModal">       
+                 <p>The predicted label is: [[isLabel]]</p>
+            </div>
+        </section>
+    <script src="https://unpkg.com/vue@3"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            
+                data() {
+                    return {
+                        documents: [],
+                        picked: null,
+                        displayPicked: false,
+                        displayEnvironmental : false,
+                        pickedEnvironmental : null,
+                        displayImage_Processing : false,
+                        pickedImage_Processing: null,
+                        pickedImage_Processing : null,
+                        selectionObj: [],
+                        fileName: null,
+                        showModal: false,
+                        isLabel: null,
+                        label_dictEnv: {
+                                0 :'air conditioner',
+                                1 :'car horn',
+                                2 :'children playing',
+                                3 :'dog bark',
+                                4 :'drilling',
+                                5 :'engine idling',
+                                6 :'gun shot',
+                                7 :'jackhammer',
+                                8 :'siren',
+                                9 : 'street music'
+                        },
+                        label_dictMusic: {
+                                0 :'Electronic',
+                                1 :'Experimental',
+                                2 :'Folk',
+                                3 :'Hip-Hop',
+                                4 :'Instrumental',
+                                5 :'International',
+                                6 :'Pop',
+                                7 :'Rock'
+                        }
+
+                    }
+                },
+                delimiters: ['[[', ']]'],
+                methods: {
+                    chooseType_Step1() {
+                        console.log(this.picked);
+                            this.displayEnvironmental = true;
+                    },
+                    chooseType_Step2() {
+                        console.log(this.pickedEnvironmental);
+                        if(this.pickedEnvironmental === 'raw' ||this.pickedEnvironmental === 'mfcc') {
+                                     this.displayImage_Processing = false;  
+                                     this.pickedImage_Processing = null;
+                        } else if(this.pickedEnvironmental === 'imageProcesing') {
+                
+                            this.displayImage_Processing = true;  
+                        }
+                    },
+                    chooseType_Step3() {
+                        console.log(this.pickedImage_Processing)
+                    },
+                    selectFile() {
+                        Array.from(this.$refs.file.files).forEach(file => {
+                            this.upload(file);
+                            this.displayPicked = true;
+                          //  console.log('file with name =>', file.name);
+                            console.log('file  =>', file);
+                            this.fileName = file.name;
+                            this.documents.push({
+                                'name': file.name,
+                                'status': 'is uploading'    
+                            })
+                        })
+                    },
+                 
+                    upload(file) {
+                        this.progress = 0
+
+                        this.performUpload(file)
+                        .then(response => {
+                            this.documents.forEach(document => {
+                                if (document.name === file.name) {
+                                    document['status'] = 'is uploaded'
+                                }
+                            })
+                        })
+                        .catch(error => {
+                            this.documents.forEach(document => {
+                                if (document.name === file.name) {
+                                    document['status'] = 'failed'
+                                }
+                            })
+                        })
+                    },
+                    reset() {
+                        console.log('reset');
+                        this.documents = [];
+                        this.selectionObj = [];
+                        this.fileName = [];
+                        this.displayEnvironmental = false;
+                        this.displayPicked = false;
+                        this.displayImage_Processing = false;
+                        this.showModal = false;
+                        this.isLabel = null;
+
+                    },
+                    performUpload(file) {
+                        let formData = new FormData()
+                        formData.append('document', file)
+                        console.log('data form',formData);
+
+                        return axios
+                            .post('/upload/', formData, {
+                                headers: {
+                                    "Content-Type": "multipart/form-data",
+                                    "X-CSRFToken": "{{ csrf_token }}"
+                                }
+                            })
+                    },
+                    getTypeProceed() {
+                        this.selectionObj={
+                            filename: this.fileName,
+                            sound_type: this.picked,
+                            sound_representation: this.pickedEnvironmental,
+                            image_representation: this.pickedImage_Processing,
+                        };
+
+                        console.log('my obj', this.selectionObj)
+                        
+                        return axios
+                            .post('/proceedAudio/', this.selectionObj , {
+                                headers: {
+                                    "Content-Type": "test",
+                                    "X-CSRFToken": "{{ csrf_token }}"
+                                }
+                            })
+                            .then(response => {
+                            this.responseData = response.data;
+                            if(response.data['environmental'] !== undefined){
+                                let id= parseInt(response.data['environmental']);
+                                this.isLabel = this.label_dictEnv[id]
+                                console.log(this.label_dictEnv[id]);
+                                this.showModal =true;
+                            
+
+                            }
+                            else if(response.data['music'] !== undefined){
+                                let id= parseInt(response.data['music']);
+                                this.isLabel = this.label_dictMusic[id]
+                                console.log(this.label_dictMusic[id]);
+                                this.showModal =true;
+                            }
+                           
+                           
+                        })
+                        .catch(error => {
+                            console.error(error);
+                        });
+                    },
+                
+                },
+                created() {
+                  
+                },
+                mounted() {
+    
+                }
+            }).mount('#app')
+    </script>
+</body>
+</html>
+
+<script src="https://unpkg.com/vue@3"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
